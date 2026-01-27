@@ -42,13 +42,13 @@ export const Hero = () => {
           BUILT IN 14 DAYS. SHIPS TODAY.
         </p>
         
-        <h1 className="mb-6 font-display text-4xl font-black leading-[1.1] md:text-6xl">
+        <h1 className="mb-6 font-display text-3xl font-black leading-[1.1] md:text-6xl">
           Stop planning.<br />
           Start executing.<br />
-          <span className="text-secondary text-2xl md:text-4xl">6 micro-apps. Zero excuses.</span>
+          <span className="text-secondary text-xl md:text-4xl">6 micro-apps. Zero excuses.</span>
         </h1>
 
-        <p className="mb-10 text-lg text-text-secondary md:text-xl md:leading-relaxed">
+        <p className="mb-10 text-md text-text-secondary md:text-xl md:leading-relaxed">
           Decision paralysis kills more dreams than failure ever will.<br />
           Get your command center for focus, execution, and relentless progress.
         </p>
