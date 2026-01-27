@@ -42,10 +42,10 @@ export const Hero = () => {
           BUILT IN 14 DAYS. SHIPS TODAY.
         </p>
         
-        <h1 className="mb-6 font-display text-5xl font-black leading-[1.1] md:text-7xl">
+        <h1 className="mb-6 font-display text-4xl font-black leading-[1.1] md:text-6xl">
           Stop planning.<br />
           Start executing.<br />
-          <span className="text-secondary">6 micro-apps. Zero excuses.</span>
+          <span className="text-secondary text-2xl md:text-4xl">6 micro-apps. Zero excuses.</span>
         </h1>
 
         <p className="mb-10 text-lg text-text-secondary md:text-xl md:leading-relaxed">
