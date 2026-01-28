@@ -28,7 +28,7 @@ export const StreakHero = ({ streak, bestStreak, completedToday, totalMetrics, o
         <p className="mb-8 text-text-secondary">
           Add metrics you want to track daily. Training, posting, coding—whatever moves you forward.
         </p>
-        <Button onClick={onAddMetric} className="h-14 px-10 text-lg">
+        <Button onClick={onAddMetric} className="h-14 px-10 text-lg bg-[var(--app-2-accent)] hover:shadow-[0_8px_24px_rgba(251,146,60,0.3)]">
           Add First Metric
         </Button>
       </div>
@@ -104,7 +104,7 @@ export const StreakHero = ({ streak, bestStreak, completedToday, totalMetrics, o
             onClick={onAddMetric} 
             className={cn(
               "h-12",
-              isNeverStarted ? "bg-bg-tertiary hover:bg-border-subtle text-text-primary" : "bg-app-2 hover:bg-app-2-light"
+              isNeverStarted ? "bg-bg-tertiary hover:bg-border-subtle text-text-primary hover:shadow-[0_8px_24px_rgba(251,146,60,0.3)]" : "bg-app-2 hover:bg-app-2-light"
             )}
           >
             {isNeverStarted ? "Add More Metrics" : "Start New Streak"}

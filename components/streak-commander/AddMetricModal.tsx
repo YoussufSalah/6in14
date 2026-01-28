@@ -70,8 +70,8 @@ export const AddMetricModal = ({ isOpen, onClose, editMetricId }: AddMetricModal
           </div>
 
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={onClose} fullWidth>Cancel</Button>
-            <Button type="submit" fullWidth className="bg-app-2 hover:bg-app-2-light border-none">
+            <Button variant="secondary" className="border-app-2 hover:bg-[rgba(251,146,60,0.3)] text-app-2" onClick={onClose} fullWidth>Cancel</Button>
+            <Button type="submit" fullWidth className="bg-app-2 hover:bg-app-2-light hover:shadow-[0_8px_24px_rgba(251,146,60,0.3)] border-none">
               {editMetricId ? "Save Changes" : "Add Metric"}
             </Button>
           </div>
