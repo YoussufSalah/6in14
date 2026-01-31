@@ -158,7 +158,7 @@ export const DailyCheckIn = ({ onLog, existingLog }: DailyCheckInProps) => {
         </div>
 
         <div className="pt-4">
-          <Button type="submit" fullWidth className="h-14 text-lg shadow-xl shadow-app-4/20">
+          <Button type="submit" fullWidth className="h-14 text-lg bg-app-4 shadow-xl shadow-app-4/20">
             {existingLog ? "Update Today's Metrics" : "Log Today's Metrics"}
           </Button>
           
