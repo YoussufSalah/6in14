@@ -42,8 +42,8 @@ export const CheckInList = ({ metrics, onCheckIn, completedCount, totalMetrics, 
       <div className="space-y-4">
         {metrics.map((metric) => {
           const todaysEntry = metric.history.find(h => h.date === today);
-          const isAnswered = !!todaysEntry;
-          const status = todaysEntry?.status || "none";
+          const isAnswered = todaysEntry && todaysEntry.status !== "pending";
+          const status = todaysEntry?.status || "pending";
 
           return (
             <div 
@@ -94,7 +94,7 @@ export const CheckInList = ({ metrics, onCheckIn, completedCount, totalMetrics, 
                     {status === "done" && <Check className="h-4 w-4" />}
                     {status === "missed" && <X className="h-4 w-4" />}
                     {status === "rest" && <Coffee className="h-4 w-4" />}
-                    {status}
+                    {status === "missed" ? "Missed" : status}
                   </div>
                 )}
               </div>

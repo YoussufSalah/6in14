@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Layout } from "@/components/universal/Layout";
 import { StreakHero } from "@/components/streak-commander/StreakHero";
 import { CheckInList } from "@/components/streak-commander/CheckInList";
@@ -12,14 +12,31 @@ import { useStreakCommanderStore } from "@/store/streakCommanderStore";
 export default function StreakCommanderPage() {
   const { 
     metrics, 
+    lastKnownMainStreak,
     deleteMetric, 
     checkIn, 
     getMainStreak, 
-    getTodaysStats 
+    getTodaysStats,
+    initializeDaily
   } = useStreakCommanderStore();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editMetricId, setEditMetricId] = useState<string | null>(null);
+  const [shouldShake, setShouldShake] = useState(false);
+
+  // Initialize data on mount
+  useEffect(() => {
+    const prevStreak = lastKnownMainStreak;
+    initializeDaily();
+    
+    // Check if streak was broken between sessions
+    const currentStreak = getMainStreak().current;
+    if (prevStreak > 0 && currentStreak === 0) {
+      setShouldShake(true);
+      // Reset shake after animation completes
+      setTimeout(() => setShouldShake(false), 2000);
+    }
+  }, []);
 
   const mainStreak = useMemo(() => getMainStreak(), [metrics]);
   const todaysStats = useMemo(() => getTodaysStats(), [metrics]);
@@ -47,6 +64,7 @@ export default function StreakCommanderPage() {
           completedToday={todaysStats.completed} 
           totalMetrics={todaysStats.total} 
           onAddMetric={handleAdd}
+          shake={shouldShake}
         />
 
         {metrics.length > 0 && (

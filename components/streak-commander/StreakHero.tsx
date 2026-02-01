@@ -11,9 +11,10 @@ interface StreakHeroProps {
   completedToday: number;
   totalMetrics: number;
   onAddMetric: () => void;
+  shake?: boolean;
 }
 
-export const StreakHero = ({ streak, bestStreak, completedToday, totalMetrics, onAddMetric }: StreakHeroProps) => {
+export const StreakHero = ({ streak, bestStreak, completedToday, totalMetrics, onAddMetric, shake }: StreakHeroProps) => {
   const isActive = streak > 0;
   const noMetrics = totalMetrics === 0;
   const isNeverStarted = streak === 0 && bestStreak === 0;
@@ -64,7 +65,10 @@ export const StreakHero = ({ streak, bestStreak, completedToday, totalMetrics, o
         )}
       </div>
 
-      <div className="flex flex-col items-center">
+      <div className={cn(
+        "flex flex-col items-center",
+        shake && "animate-shake"
+      )}>
         <span className={cn(
           "font-display text-7xl font-black leading-none sm:text-8xl",
           isActive ? "text-app-2" : isNeverStarted ? "text-app-2/60" : "text-error"

@@ -27,13 +27,14 @@ export const MetricHeatmap = ({ history }: MetricHeatmapProps) => {
       {last30Days.map((day, i) => (
         <div 
           key={day.date}
-          title={`${day.dayName}: ${day.status}`}
+          title={`${day.dayName}: ${day.status === 'pending' ? 'Pending — not yet answered today' : day.status}`}
           className={cn(
             "aspect-square rounded-sm border border-border-subtle transition-all hover:scale-125 hover:z-10",
             day.status === "none" && "bg-bg-tertiary opacity-30",
             day.status === "done" && "bg-success shadow-[0_0_8px_rgba(34,197,150,0.3)]",
             day.status === "rest" && "bg-warning opacity-60",
-            day.status === "missed" && "bg-error opacity-40"
+            day.status === "missed" && "bg-error opacity-40",
+            day.status === "pending" && "bg-bg-tertiary border-dashed border-border-strong opacity-60"
           )}
         />
       ))}

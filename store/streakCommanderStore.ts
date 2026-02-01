@@ -1,22 +1,25 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Metric, MetricStatus, HistoryEntry, calculateMetricStreak, calculateMainStreak } from "@/lib/streakLogic";
+import { Metric, MetricStatus, calculateSubstreak, calculateBestStreak, calculateMainStreak } from "@/lib/streakLogic";
 import { format } from "date-fns";
 
 interface StreakCommanderState {
   metrics: Metric[];
+  lastKnownMainStreak: number;
   addMetric: (name: string) => void;
   updateMetric: (id: string, name: string) => void;
   deleteMetric: (id: string) => void;
   checkIn: (metricId: string, status: MetricStatus) => void;
   getMainStreak: () => { current: number; best: number };
   getTodaysStats: () => { completed: number; total: number; percentage: number };
+  initializeDaily: () => void;
  }
 
 export const useStreakCommanderStore = create<StreakCommanderState>()(
   persist(
     (set, get) => ({
       metrics: [],
+      lastKnownMainStreak: 0,
       
       addMetric: (name) => set((state) => {
         const newMetric: Metric = {
@@ -46,18 +49,24 @@ export const useStreakCommanderStore = create<StreakCommanderState>()(
             let updatedHistory = [...m.history];
             
             if (existingEntryIndex !== -1) {
-              updatedHistory[existingEntryIndex] = { date: today, status };
+              updatedHistory[existingEntryIndex] = { ...updatedHistory[existingEntryIndex], status };
             } else {
               updatedHistory.push({ date: today, status });
             }
 
-            const { current, best } = calculateMetricStreak(updatedHistory);
+            const current = calculateSubstreak({ ...m, history: updatedHistory });
+            const best = calculateBestStreak({ ...m, history: updatedHistory });
             return { ...m, history: updatedHistory, currentStreak: current, bestStreak: best };
           }
           return m;
         });
 
-        return { metrics: updatedMetrics };
+        const mainStreak = calculateMainStreak(updatedMetrics);
+
+        return { 
+          metrics: updatedMetrics,
+          lastKnownMainStreak: mainStreak.current
+        };
       }),
 
       getMainStreak: () => {
@@ -69,6 +78,11 @@ export const useStreakCommanderStore = create<StreakCommanderState>()(
         const metrics = get().metrics;
         if (metrics.length === 0) return { completed: 0, total: 0, percentage: 0 };
 
+        const answered = metrics.filter(m => {
+          const entry = m.history.find(h => h.date === today);
+          return entry && entry.status !== "pending";
+        }).length;
+
         const completed = metrics.filter(m => {
           const entry = m.history.find(h => h.date === today);
           return entry && (entry.status === "done" || entry.status === "rest");
@@ -77,9 +91,50 @@ export const useStreakCommanderStore = create<StreakCommanderState>()(
         return { 
           completed, 
           total: metrics.length, 
-          percentage: (completed / metrics.length) * 100 
+          percentage: metrics.length > 0 ? (answered / metrics.length) * 100 : 0 
         };
       },
+
+      initializeDaily: () => set((state) => {
+        const today = format(new Date(), "yyyy-MM-dd");
+        
+        // 1. Flush stale pending entries
+        const flushedMetrics = state.metrics.map(metric => {
+          const updatedHistory = metric.history.map(entry => {
+            if (entry.status === "pending" && entry.date < today) {
+              return { ...entry, status: "missed" as MetricStatus };
+            }
+            return entry;
+          });
+          return { ...metric, history: updatedHistory };
+        });
+
+        // 2. Initialize today's pending entries
+        const initializedMetrics = flushedMetrics.map(metric => {
+          const hasEntryToday = metric.history.some(h => h.date === today);
+          if (!hasEntryToday) {
+            return {
+              ...metric,
+              history: [...metric.history, { date: today, status: "pending" as MetricStatus }]
+            };
+          }
+          return metric;
+        });
+
+        // 3. Recalculate streaks
+        const finalMetrics = initializedMetrics.map(metric => ({
+          ...metric,
+          currentStreak: calculateSubstreak(metric),
+          bestStreak: calculateBestStreak(metric)
+        }));
+
+        const mainStreak = calculateMainStreak(finalMetrics);
+
+        return { 
+          metrics: finalMetrics,
+          lastKnownMainStreak: mainStreak.current
+        };
+      })
     }),
     {
       name: "streak-commander-storage",
