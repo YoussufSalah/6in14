@@ -1,86 +1,105 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { EnergyLog, calculateEnergyInsights } from "@/lib/energyLogic";
-import { format } from "date-fns";
+import { EnergyLog, EnergyInsights, calculateEnergyInsights } from "@/lib/energyLogic";
+import * as api from "@/lib/api/energy";
+import { format, subDays, isSameDay } from "date-fns";
 
 interface EnergyMonitorState {
   logs: EnergyLog[];
-  logToday: (sleep: number, mood: number, fatigue: number) => void;
-  getTodayLog: () => EnergyLog | null;
-  getInsights: () => ReturnType<typeof calculateEnergyInsights>;
+  loading: boolean;
+  error: string | null;
+  
+  fetchEntries: () => Promise<void>;
+  logToday: (entry: Omit<EnergyLog, "timestamp">) => Promise<void>;
+  deleteEntry: (date: string) => Promise<void>;
+  getTodayLog: () => EnergyLog | undefined;
+  getInsights: () => EnergyInsights;
   getStreak: () => number;
 }
 
 export const useEnergyMonitorStore = create<EnergyMonitorState>()(
-  persist(
-    (set, get) => ({
-      logs: [],
+  (set, get) => ({
+    logs: [],
+    loading: false,
+    error: null,
 
-      logToday: (sleep, mood, fatigue) => set((state) => {
-        const date = format(new Date(), "yyyy-MM-dd");
-        const existingIndex = state.logs.findIndex(l => l.date === date);
-        const newLog: EnergyLog = {
-          date,
-          sleep,
-          mood,
-          fatigue,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-
-        let updatedLogs = [...state.logs];
-        if (existingIndex !== -1) {
-          updatedLogs[existingIndex] = newLog;
-        } else {
-          updatedLogs.push(newLog);
-        }
-
-        return { logs: updatedLogs };
-      }),
-
-      getTodayLog: () => {
-        const today = format(new Date(), "yyyy-MM-dd");
-        return get().logs.find(l => l.date === today) || null;
-      },
-
-      getInsights: () => {
-        return calculateEnergyInsights(get().logs);
-      },
-
-      getStreak: () => {
-        const sortedLogs = [...get().logs].sort((a, b) => b.date.localeCompare(a.date));
-        if (sortedLogs.length === 0) return 0;
-
-        let streak = 0;
-        let currentDate = new Date();
-        const todayStr = format(currentDate, "yyyy-MM-dd");
-        const yesterdayStr = format(subDays(currentDate, 1), "yyyy-MM-dd");
-
-        // If no log today or yesterday, streak is broken
-        if (!sortedLogs.some(l => l.date === todayStr || l.date === yesterdayStr)) return 0;
-
-        // Count backwards
-        for (let i = 0; i < 365; i++) {
-          const dateStr = format(subDays(new Date(), i), "yyyy-MM-dd");
-          const hasLog = sortedLogs.some(l => l.date === dateStr);
-          if (hasLog) {
-            streak++;
-          } else {
-            // Allow skip today if not yet logged
-            if (i === 0) continue;
-            break;
-          }
-        }
-        return streak;
+    fetchEntries: async () => {
+      set({ loading: true, error: null });
+      try {
+        const endDate = format(new Date(), "yyyy-MM-dd");
+        const startDate = format(subDays(new Date(), 90), "yyyy-MM-dd");
+        const entries = await api.fetchEntries(startDate, endDate);
+        set({ logs: entries, loading: false });
+      } catch (err: any) {
+        set({ error: err.message, loading: false });
       }
-    }),
-    {
-      name: "energy-monitor-storage",
-    }
-  )
-);
+    },
 
-function subDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() - days);
-  return result;
-}
+    logToday: async (entry) => {
+      const previousLogs = get().logs;
+      const index = previousLogs.findIndex(e => e.date === entry.date);
+      const newEntry: EnergyLog = { ...entry, timestamp: new Date().toISOString() };
+      
+      let newLogs;
+      if (index >= 0) {
+        newLogs = [...previousLogs];
+        newLogs[index] = newEntry;
+      } else {
+        newLogs = [...previousLogs, newEntry];
+      }
+      set({ logs: newLogs });
+
+      try {
+        await api.upsertEntry(entry);
+      } catch (err: any) {
+        set({ logs: previousLogs, error: err.message });
+      }
+    },
+
+    deleteEntry: async (date) => {
+      const previousLogs = get().logs;
+      set({ logs: previousLogs.filter(e => e.date !== date) });
+      try {
+        await api.deleteEntry(date);
+      } catch (err: any) {
+        set({ logs: previousLogs, error: err.message });
+      }
+    },
+
+    getTodayLog: () => {
+      const todayStr = format(new Date(), "yyyy-MM-dd");
+      return get().logs.find((e) => e.date === todayStr);
+    },
+
+    getInsights: () => {
+      return calculateEnergyInsights(get().logs);
+    },
+
+    getStreak: () => {
+      const sortedLogs = [...get().logs]
+        .sort((a, b) => b.date.localeCompare(a.date));
+      
+      if (sortedLogs.length === 0) return 0;
+      
+      let streak = 0;
+      let checkDate = new Date();
+      
+      // If today is not logged, start checking from yesterday
+      const todayStr = format(new Date(), "yyyy-MM-dd");
+      if (sortedLogs[0].date !== todayStr) {
+        checkDate = subDays(checkDate, 1);
+      }
+
+      while (true) {
+        const dateStr = format(checkDate, "yyyy-MM-dd");
+        const entry = sortedLogs.find(l => l.date === dateStr);
+        if (entry) {
+          streak++;
+          checkDate = subDays(checkDate, 1);
+        } else {
+          break;
+        }
+      }
+      return streak;
+    }
+  })
+);

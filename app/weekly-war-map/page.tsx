@@ -10,9 +10,12 @@ import { useWarMapStore } from "@/store/warMapStore";
 import { getCurrentWeekInfo, determineWeekState } from "@/lib/warMapLogic";
 import { differenceInDays } from "date-fns";
 
+import { ProtectedRoute } from "@/components/universal/ProtectedRoute";
+
 export default function WeeklyWarMapPage() {
   const {
     weeklyData,
+    loading,
     checkAndInitialize,
     setTaskName,
     addSubtask,
@@ -33,8 +36,6 @@ export default function WeeklyWarMapPage() {
     determineWeekState(weeklyData, weekInfo.weekId), 
   [weeklyData, weekInfo.weekId]);
 
-  if (!weeklyData) return null;
-
   const completedTasks = weeklyData.tasks.filter(t => 
     t.subtasks.length > 0 && t.subtasks.every(st => st.completed)
   ).length;
@@ -44,47 +45,57 @@ export default function WeeklyWarMapPage() {
   const daysLeft = differenceInDays(weekInfo.end, new Date());
 
   return (
-    <Layout 
-      appName="Weekly War Map" 
-      appAccent="var(--app-3-accent)"
-    >
-      <div className="pb-24">
-        <WeekHeader 
-          startDate={weekInfo.startDateStr}
-          endDate={weekInfo.endDateStr}
-          state={state}
-          completedTasks={completedTasks}
-          completedSubtasks={completedSubtasks}
-          totalSubtasks={totalSubtasks}
-          daysLeft={daysLeft}
-        />
-
-        {state === "PLANNING" && (
-          <PlanningView 
-            tasks={weeklyData.tasks}
-            onSetTaskName={setTaskName}
-            onAddSubtask={addSubtask}
-            onRemoveSubtask={removeSubtask}
-            onUpdateSubtaskName={updateSubtaskName}
-            onCommit={commitWeek}
-          />
-        )}
-
-        {state === "EXECUTION" && (
-          <ExecutionView 
-            tasks={weeklyData.tasks}
-            onToggleSubtask={toggleSubtask}
+    <ProtectedRoute>
+      <Layout 
+        appName="Weekly War Map" 
+        appAccent="var(--app-3-accent)"
+      >
+        <div className="pb-24">
+          <WeekHeader 
+            startDate={weekInfo.startDateStr}
+            endDate={weekInfo.endDateStr}
+            state={state}
             completedTasks={completedTasks}
-          />
-        )}
-
-        {state === "COMPLETED" && (
-          <CompletedView 
+            completedSubtasks={completedSubtasks}
             totalSubtasks={totalSubtasks}
-            onReset={resetForNewWeek}
+            daysLeft={daysLeft}
           />
-        )}
-      </div>
-    </Layout>
+
+          {loading && state !== "PLANNING" ? (
+            <div className="flex h-64 items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-app-3 border-t-transparent" />
+            </div>
+          ) : (
+            <>
+              {state === "PLANNING" && (
+                <PlanningView 
+                  tasks={weeklyData.tasks}
+                  onSetTaskName={setTaskName}
+                  onAddSubtask={addSubtask}
+                  onRemoveSubtask={removeSubtask}
+                  onUpdateSubtaskName={updateSubtaskName}
+                  onCommit={commitWeek}
+                />
+              )}
+
+              {state === "EXECUTION" && (
+                <ExecutionView 
+                  tasks={weeklyData.tasks}
+                  onToggleSubtask={toggleSubtask}
+                  completedTasks={completedTasks}
+                />
+              )}
+
+              {state === "COMPLETED" && (
+                <CompletedView 
+                  totalSubtasks={totalSubtasks}
+                  onReset={resetForNewWeek}
+                />
+              )}
+            </>
+          )}
+        </div>
+      </Layout>
+    </ProtectedRoute>
   );
 }

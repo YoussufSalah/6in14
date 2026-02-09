@@ -20,6 +20,28 @@ export interface WeeklyEntry {
     loggedDate: string; // ISO timestamp
 }
 
+export interface ProgressWeek {
+    weekId: string;
+    users: number;
+    revenue: number;
+    posts: number;
+    training: number;
+}
+
+export interface ProgressSettings {
+    currencySymbol: string;
+}
+
+export function getEmptyWeek(weekId: string): ProgressWeek {
+    return {
+        weekId,
+        users: 0,
+        revenue: 0,
+        posts: 0,
+        training: 0
+    };
+}
+
 export function getWeekRange(date: Date = new Date()) {
     const start = startOfWeek(date, { weekStartsOn: 0 }); // Sunday
     const end = endOfWeek(date, { weekStartsOn: 0 }); // Saturday

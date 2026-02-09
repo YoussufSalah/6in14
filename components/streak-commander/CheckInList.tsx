@@ -41,9 +41,8 @@ export const CheckInList = ({ metrics, onCheckIn, completedCount, totalMetrics, 
 
       <div className="space-y-4">
         {metrics.map((metric) => {
-          const todaysEntry = metric.history.find(h => h.date === today);
-          const isAnswered = todaysEntry && todaysEntry.status !== "pending";
-          const status = todaysEntry?.status || "pending";
+          const status = metric.history[today] || "pending";
+          const isAnswered = status !== "pending" && status !== "none";
 
           return (
             <div 

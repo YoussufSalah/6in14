@@ -1,143 +1,170 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { Metric, MetricStatus, calculateSubstreak, calculateBestStreak, calculateMainStreak } from "@/lib/streakLogic";
-import { format } from "date-fns";
+import { 
+  Metric,
+  MetricStatus, 
+  calculateMainStreak, 
+  calculateSubstreak,
+  calculateBestStreak
+} from "@/lib/streakLogic";
+import * as api from "@/lib/api/streaks";
+import { format, subDays } from "date-fns";
 
 interface StreakCommanderState {
   metrics: Metric[];
+  loading: boolean;
+  error: string | null;
   lastKnownMainStreak: number;
-  addMetric: (name: string) => void;
-  updateMetric: (id: string, name: string) => void;
-  deleteMetric: (id: string) => void;
-  checkIn: (metricId: string, status: MetricStatus) => void;
+  
+  fetchData: () => Promise<void>;
+  addMetric: (name: string) => Promise<void>;
+  deleteMetric: (id: string) => Promise<void>;
+  checkIn: (metricId: string, status: MetricStatus) => Promise<void>;
+  initializeDaily: () => Promise<void>;
+  
   getMainStreak: () => { current: number; best: number };
+  getSubstreak: (metricId: string) => number;
   getTodaysStats: () => { completed: number; total: number; percentage: number };
-  initializeDaily: () => void;
- }
+}
 
 export const useStreakCommanderStore = create<StreakCommanderState>()(
-  persist(
-    (set, get) => ({
-      metrics: [],
-      lastKnownMainStreak: 0,
-      
-      addMetric: (name) => set((state) => {
-        const newMetric: Metric = {
-          id: Math.random().toString(36).substring(2, 9),
-          name,
-          createdAt: new Date().toISOString(),
-          history: [],
-          currentStreak: 0,
-          bestStreak: 0,
-        };
-        return { metrics: [...state.metrics, newMetric] };
-      }),
+  (set, get) => ({
+    metrics: [],
+    loading: false,
+    error: null,
+    lastKnownMainStreak: 0,
 
-      updateMetric: (id, name) => set((state) => ({
-        metrics: state.metrics.map(m => m.id === id ? { ...m, name } : m)
-      })),
-
-      deleteMetric: (id) => set((state) => ({
-        metrics: state.metrics.filter(m => m.id !== id)
-      })),
-
-      checkIn: (metricId, status) => set((state) => {
-        const today = format(new Date(), "yyyy-MM-dd");
-        const updatedMetrics = state.metrics.map(m => {
-          if (m.id === metricId) {
-            const existingEntryIndex = m.history.findIndex(h => h.date === today);
-            let updatedHistory = [...m.history];
-            
-            if (existingEntryIndex !== -1) {
-              updatedHistory[existingEntryIndex] = { ...updatedHistory[existingEntryIndex], status };
-            } else {
-              updatedHistory.push({ date: today, status });
-            }
-
-            const current = calculateSubstreak({ ...m, history: updatedHistory });
-            const best = calculateBestStreak({ ...m, history: updatedHistory });
-            return { ...m, history: updatedHistory, currentStreak: current, bestStreak: best };
-          }
-          return m;
-        });
-
-        const mainStreak = calculateMainStreak(updatedMetrics);
-
-        return { 
-          metrics: updatedMetrics,
-          lastKnownMainStreak: mainStreak.current
-        };
-      }),
-
-      getMainStreak: () => {
-        return calculateMainStreak(get().metrics);
-      },
-
-      getTodaysStats: () => {
-        const today = format(new Date(), "yyyy-MM-dd");
-        const metrics = get().metrics;
-        if (metrics.length === 0) return { completed: 0, total: 0, percentage: 0 };
-
-        const answered = metrics.filter(m => {
-          const entry = m.history.find(h => h.date === today);
-          return entry && entry.status !== "pending";
-        }).length;
-
-        const completed = metrics.filter(m => {
-          const entry = m.history.find(h => h.date === today);
-          return entry && (entry.status === "done" || entry.status === "rest");
-        }).length;
-
-        return { 
-          completed, 
-          total: metrics.length, 
-          percentage: metrics.length > 0 ? (answered / metrics.length) * 100 : 0 
-        };
-      },
-
-      initializeDaily: () => set((state) => {
-        const today = format(new Date(), "yyyy-MM-dd");
+    fetchData: async () => {
+      set({ loading: true, error: null });
+      try {
+        const dbMetrics = await api.fetchMetrics();
+        const metricIds = dbMetrics.map(m => m.id);
         
-        // 1. Flush stale pending entries
-        const flushedMetrics = state.metrics.map(metric => {
-          const updatedHistory = metric.history.map(entry => {
-            if (entry.status === "pending" && entry.date < today) {
-              return { ...entry, status: "missed" as MetricStatus };
-            }
-            return entry;
-          });
-          return { ...metric, history: updatedHistory };
+        if (metricIds.length === 0) {
+          set({ metrics: [], loading: false });
+          return;
+        }
+
+        const endDate = format(new Date(), "yyyy-MM-dd");
+        const startDate = format(subDays(new Date(), 30), "yyyy-MM-dd");
+        
+        const history = await api.fetchHistory(metricIds, startDate, endDate);
+
+        const mappedMetrics: Metric[] = dbMetrics.map(m => {
+          const metricHistory: Record<string, MetricStatus> = {};
+          history
+            .filter(h => h.metric_id === m.id)
+            .forEach(h => {
+              metricHistory[h.date] = h.status as MetricStatus;
+            });
+          
+          const metricBase = {
+            id: m.id,
+            name: m.name,
+            history: metricHistory
+          };
+
+          return {
+            ...metricBase,
+            currentStreak: calculateSubstreak(metricBase),
+            bestStreak: calculateBestStreak(metricBase)
+          };
         });
 
-        // 2. Initialize today's pending entries
-        const initializedMetrics = flushedMetrics.map(metric => {
-          const hasEntryToday = metric.history.some(h => h.date === today);
-          if (!hasEntryToday) {
-            return {
-              ...metric,
-              history: [...metric.history, { date: today, status: "pending" as MetricStatus }]
-            };
-          }
-          return metric;
+        const currentStreak = calculateMainStreak(mappedMetrics).current;
+        set({ 
+          metrics: mappedMetrics, 
+          loading: false,
+          lastKnownMainStreak: currentStreak 
         });
+      } catch (err: any) {
+        set({ error: err.message, loading: false });
+      }
+    },
 
-        // 3. Recalculate streaks
-        const finalMetrics = initializedMetrics.map(metric => ({
-          ...metric,
-          currentStreak: calculateSubstreak(metric),
-          bestStreak: calculateBestStreak(metric)
-        }));
+    addMetric: async (name) => {
+      set({ loading: true });
+      try {
+        const newMetric = await api.addMetric(name);
+        const today = format(new Date(), "yyyy-MM-dd");
+        await api.upsertStatus(newMetric.id, today, "pending");
+        await get().fetchData();
+      } catch (err: any) {
+        set({ error: err.message, loading: false });
+      }
+    },
 
-        const mainStreak = calculateMainStreak(finalMetrics);
+    deleteMetric: async (id) => {
+      set({ loading: true });
+      try {
+        await api.deleteMetric(id);
+        await get().fetchData();
+      } catch (err: any) {
+        set({ error: err.message, loading: false });
+      }
+    },
 
-        return { 
-          metrics: finalMetrics,
-          lastKnownMainStreak: mainStreak.current
-        };
-      })
-    }),
-    {
-      name: "streak-commander-storage",
+    checkIn: async (metricId, status) => {
+      const today = format(new Date(), "yyyy-MM-dd");
+      
+      // Optimistic update
+      const previousMetrics = get().metrics;
+      set({
+        metrics: previousMetrics.map(m => 
+          m.id === metricId 
+            ? { ...m, history: { ...m.history, [today]: status } }
+            : m
+        )
+      });
+
+      try {
+        await api.upsertStatus(metricId, today, status);
+      } catch (err: any) {
+        set({ metrics: previousMetrics, error: err.message });
+      }
+    },
+
+    initializeDaily: async () => {
+      const today = format(new Date(), "yyyy-MM-dd");
+      set({ loading: true });
+      try {
+        await api.flushStalePending(today);
+        
+        const dbMetrics = await api.fetchMetrics();
+        const metricIds = dbMetrics.map(m => m.id);
+        
+        if (metricIds.length > 0) {
+           const historyData = await api.fetchHistory(metricIds, today, today);
+           const existingMetricIds = new Set(historyData.map(h => h.metric_id));
+           
+           for (const id of metricIds) {
+             if (!existingMetricIds.has(id)) {
+               await api.upsertStatus(id, today, "pending");
+             }
+           }
+        }
+        
+        await get().fetchData();
+      } catch (err: any) {
+        set({ error: err.message, loading: false });
+      }
+    },
+
+    getMainStreak: () => calculateMainStreak(get().metrics),
+    getSubstreak: (metricId) => {
+      const metric = get().metrics.find((m) => m.id === metricId);
+      return metric ? calculateSubstreak(metric) : 0;
+    },
+    getTodaysStats: () => {
+      const today = format(new Date(), "yyyy-MM-dd");
+      const metrics = get().metrics;
+      if (metrics.length === 0) return { completed: 0, total: 0, percentage: 0 };
+
+      const completed = metrics.filter(m => m.history[today] === "done").length;
+      return {
+        completed,
+        total: metrics.length,
+        percentage: Math.round((completed / metrics.length) * 100)
+      };
     }
-  )
+  })
 );

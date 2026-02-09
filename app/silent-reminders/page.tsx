@@ -7,9 +7,13 @@ import { AddReminderForm } from "@/components/silent-reminders/AddReminderForm";
 import { ReminderList } from "@/components/silent-reminders/ReminderList";
 import { useReminderStore } from "@/store/reminderStore";
 
+import { ProtectedRoute } from "@/components/universal/ProtectedRoute";
+
 export default function SilentRemindersPage() {
   const { 
     reminders, 
+    loading,
+    fetchReminders,
     addReminder, 
     deleteReminder, 
     markAsFired, 
@@ -21,6 +25,8 @@ export default function SilentRemindersPage() {
   const [swRegistered, setSwRegistered] = useState(false);
 
   useEffect(() => {
+    fetchReminders();
+
     // 1. Initial permission check
     if ("Notification" in window) {
       setPermission(Notification.permission);
@@ -31,12 +37,10 @@ export default function SilentRemindersPage() {
       if ("serviceWorker" in navigator) {
         try {
           const registration = await navigator.serviceWorker.register("/sw.js");
-          // Ensure SW is controlled
           if (navigator.serviceWorker.controller) {
             setSwRegistered(true);
-            syncWithServiceWorker(); // Push any persisted reminders to the new SW session
+            syncWithServiceWorker();
           } else {
-            // Need to wait for it to take control
             navigator.serviceWorker.addEventListener('controllerchange', () => {
               setSwRegistered(true);
               syncWithServiceWorker();
@@ -51,7 +55,6 @@ export default function SilentRemindersPage() {
 
     initSW();
 
-    // 3. Listen for messages from SW (when a reminder fires)
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === "REMINDER_FIRED") {
         markAsFired(event.data.payload.id);
@@ -60,7 +63,7 @@ export default function SilentRemindersPage() {
 
     navigator.serviceWorker.addEventListener("message", handleMessage);
     return () => navigator.serviceWorker.removeEventListener("message", handleMessage);
-  }, []);
+  }, [fetchReminders, markAsFired, syncWithServiceWorker]);
 
   const requestPermission = async () => {
     if (!("Notification" in window)) return;
@@ -81,41 +84,48 @@ export default function SilentRemindersPage() {
   );
 
   return (
-    <Layout 
-      appName="Silent Reminders" 
-      appAccent="var(--app-5-accent)"
-    >
-      <div className="space-y-12 pb-24">
-        {/* Contextual Banner */}
-        <NotificationBanner 
-          permission={permission}
-          swRegistered={swRegistered}
-          onRequestPermission={requestPermission}
-        />
-
-        {/* Form Section */}
-        <AddReminderForm 
-          onAdd={addReminder} 
-          permissionGranted={permission === "granted"} 
-          onRequestPermission={requestPermission}
-        />
-
-        {/* Lists Section */}
-        <div className="space-y-4">
-          <ReminderList 
-            reminders={activeReminders} 
-            type="active" 
-            onDelete={deleteReminder} 
+    <ProtectedRoute>
+      <Layout 
+        appName="Silent Reminders" 
+        appAccent="var(--app-5-accent)"
+      >
+        <div className="space-y-12 pb-24">
+          <NotificationBanner 
+            permission={permission}
+            swRegistered={swRegistered}
+            onRequestPermission={requestPermission}
           />
 
-          <ReminderList 
-            reminders={firedReminders} 
-            type="fired" 
-            onDelete={deleteReminder}
-            onClearAll={clearFired}
-          />
+          {loading && reminders.length === 0 ? (
+            <div className="flex h-64 items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-app-5 border-t-transparent" />
+            </div>
+          ) : (
+            <>
+              <AddReminderForm 
+                onAdd={addReminder} 
+                permissionGranted={permission === "granted"} 
+                onRequestPermission={requestPermission}
+              />
+
+              <div className="space-y-4">
+                <ReminderList 
+                  reminders={activeReminders} 
+                  type="active" 
+                  onDelete={deleteReminder} 
+                />
+
+                <ReminderList 
+                  reminders={firedReminders} 
+                  type="fired" 
+                  onDelete={deleteReminder}
+                  onClearAll={clearFired}
+                />
+              </div>
+            </>
+          )}
         </div>
-      </div>
-    </Layout>
+      </Layout>
+    </ProtectedRoute>
   );
 }

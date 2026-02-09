@@ -3,10 +3,10 @@
 import React from "react";
 import { format, subDays, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import { HistoryEntry } from "@/lib/streakLogic";
+import { MetricStatus } from "@/lib/streakLogic";
 
 interface MetricHeatmapProps {
-  history: HistoryEntry[];
+  history: Record<string, MetricStatus>;
 }
 
 export const MetricHeatmap = ({ history }: MetricHeatmapProps) => {
@@ -14,10 +14,10 @@ export const MetricHeatmap = ({ history }: MetricHeatmapProps) => {
   const last30Days = Array.from({ length: 30 }).map((_, i) => {
     const date = subDays(new Date(), 29 - i);
     const dateStr = format(date, "yyyy-MM-dd");
-    const entry = history.find(h => h.date === dateStr);
+    const status = history[dateStr] || "none";
     return {
       date: dateStr,
-      status: entry?.status || "none",
+      status,
       dayName: format(date, "EEE, MMM do")
     };
   });

@@ -21,12 +21,13 @@ export const IndividualStreaks = ({ metrics }: IndividualStreaksProps) => {
 
       <div className="grid gap-6 sm:grid-cols-2">
         {metrics.map((metric) => {
-          const doneCount = metric.history.filter(h => h.status === "done").length;
-          const restCount = metric.history.filter(h => h.status === "rest").length;
-          const missedCount = metric.history.filter(h => h.status === "missed").length;
-          const totalLogged = metric.history.length;
-          const completionRate = totalLogged > 0 
-            ? Math.round(((doneCount + restCount) / totalLogged) * 100)
+          const historyArray = Object.values(metric.history);
+          const doneCount = historyArray.filter(s => s === "done").length;
+          const restCount = historyArray.filter(s => s === "rest").length;
+          const missedCount = historyArray.filter(s => s === "missed").length;
+          const totalAnswered = historyArray.filter(s => s !== "pending" && s !== "none").length;
+          const completionRate = totalAnswered > 0 
+            ? Math.round(((doneCount + restCount) / totalAnswered) * 100)
             : 0;
 
           return (

@@ -1,4 +1,4 @@
-import { startOfWeek, endOfWeek, format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { startOfWeek, endOfWeek, format } from "date-fns";
 
 export type WeekState = "PLANNING" | "EXECUTION" | "COMPLETED";
 
@@ -11,6 +11,7 @@ export interface Subtask {
 export interface WarTask {
   id: string;
   name: string;
+  priority: 1 | 2 | 3;
   subtasks: Subtask[];
 }
 
