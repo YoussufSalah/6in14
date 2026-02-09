@@ -18,6 +18,7 @@ interface StreakCommanderState {
   fetchData: () => Promise<void>;
   addMetric: (name: string) => Promise<void>;
   deleteMetric: (id: string) => Promise<void>;
+  updateMetric: (id: string, name: string) => Promise<void>;
   checkIn: (metricId: string, status: MetricStatus) => Promise<void>;
   initializeDaily: () => Promise<void>;
   
@@ -97,6 +98,16 @@ export const useStreakCommanderStore = create<StreakCommanderState>()(
       set({ loading: true });
       try {
         await api.deleteMetric(id);
+        await get().fetchData();
+      } catch (err: any) {
+        set({ error: err.message, loading: false });
+      }
+    },
+
+    updateMetric: async (id, name) => {
+      set({ loading: true });
+      try {
+        await api.updateMetric(id, name);
         await get().fetchData();
       } catch (err: any) {
         set({ error: err.message, loading: false });

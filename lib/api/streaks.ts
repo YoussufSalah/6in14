@@ -46,6 +46,15 @@ export async function deleteMetric(id: string) {
   if (error) throw error;
 }
 
+export async function updateMetric(id: string, name: string) {
+  const { error } = await supabase
+    .from('streak_metrics')
+    .update({ name })
+    .eq('id', id);
+  
+  if (error) throw error;
+}
+
 export async function upsertStatus(metricId: string, date: string, status: MetricStatus) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Authenticated user not found");
