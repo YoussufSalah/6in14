@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { format } from "date-fns";
 import { TrendingUp, TrendingDown, Target, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { WeeklyEntry, calculateMomentumScore, detectPatterns, calculateWoW } from "@/lib/progressRadarLogic";
 import { cn } from "@/lib/utils";
