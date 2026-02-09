@@ -41,7 +41,7 @@ export const ReminderList = ({ reminders, type, onDelete, onClearAll }: Reminder
     return format(fireAt, "MMM d 'at' h:mm a");
   };
 
-  const getFiredDisplay = (firedAtStr?: string) => {
+  const getFiredDisplay = (firedAtStr?: string | null) => {
     if (!firedAtStr) return "Fired recently";
     return `Fired ${formatDistanceToNow(new Date(firedAtStr))} ago`;
   };
